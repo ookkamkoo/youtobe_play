@@ -1,8 +1,14 @@
 import { chromium } from 'playwright';
+import dotenv from 'dotenv';
+import { existsSync } from 'node:fs';
 
-// Uses the locally installed Google Chrome browser, not Playwright's bundled Chromium.
+dotenv.config({ override: true });
+
+// Raspberry Pi ใช้ Chromium ของระบบ; หากไม่พบจึงใช้ Google Chrome channel
+const browserPath = process.env.BROWSER_PATH
+  || (process.platform === 'linux' && existsSync('/usr/bin/chromium') ? '/usr/bin/chromium' : undefined);
 const browser = await chromium.launch({
-  channel: 'chrome',
+  ...(browserPath ? { executablePath: browserPath } : { channel: 'chrome' }),
   headless: false,
   chromiumSandbox: true
 });

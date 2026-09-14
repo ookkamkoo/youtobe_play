@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { chromium } from 'playwright';
@@ -14,6 +15,9 @@ const actionDelayMs = Number.parseInt(process.env.ACTION_DELAY_MS ?? '2000', 10)
 const sessionMinHours = Number.parseFloat(process.env.SESSION_MIN_HOURS ?? '2');
 const sessionMaxHours = Number.parseFloat(process.env.SESSION_MAX_HOURS ?? '8');
 const startDelayMaxMinutes = Number.parseFloat(process.env.START_DELAY_MAX_MINUTES ?? '1');
+// บน Raspberry Pi ใช้ Chromium ของระบบโดยอัตโนมัติ; Windows ยังคงใช้ Chrome channel เดิม
+const browserPath = process.env.BROWSER_PATH
+  || (process.platform === 'linux' && existsSync('/usr/bin/chromium') ? '/usr/bin/chromium' : undefined);
 
 if (!videoUrl && !searchTermsFile) {
   console.error('Set VIDEO_URL or SEARCH_TERMS_FILE in .env.');
@@ -50,8 +54,12 @@ function assertYouTubeUrl(url) {
   }
 }
 
-// ใช้โปรไฟล์ Chrome เดิม เพื่อให้คงสถานะล็อกอิน YouTube ไว้
-const profileDir = path.join(process.cwd(), '.youtube-profile');
+// บน Linux ใช้ profile Chromium ของ user เพื่อใช้ login เดิม; ระบบอื่นใช้ profile แยกของโปรเจกต์
+const profileDir = process.env.BROWSER_PROFILE_DIR
+  ? path.resolve(process.env.BROWSER_PROFILE_DIR)
+  : process.platform === 'linux'
+    ? path.join(process.env.HOME ?? process.cwd(), '.config', 'chromium')
+    : path.join(process.cwd(), '.youtube-profile');
 // สุ่มเวลารอก่อนเริ่มทั้งหมด เพื่อลดการเริ่มงานในช่วงเวลาเดิมทุกครั้ง
 const startDelayMs = Math.random() * startDelayMaxMinutes * 60 * 1000;
 if (startDelayMs > 0) {
@@ -61,7 +69,7 @@ if (startDelayMs > 0) {
 
 // หลังรอครบแล้วจึงเปิด Chrome และเริ่มขั้นตอนทั้งหมดด้านล่าง
 const context = await chromium.launchPersistentContext(profileDir, {
-  channel: 'chrome',
+  ...(browserPath ? { executablePath: browserPath } : { channel: 'chrome' }),
   headless,
   chromiumSandbox: true,
   locale: 'en-US'
@@ -86,7 +94,8 @@ try {
 
   // เปิด YouTube และตรวจว่าผู้ใช้ล็อกอินอยู่ก่อนเริ่มเล่นวิดีโอ
   await page.goto('https://www.youtube.com', { waitUntil: 'domcontentloaded', timeout: 45_000 });
-  const avatar = page.locator('button#avatar-btn');
+  // YouTube อาจแสดง avatar เป็น element คนละชนิดในแต่ละ Chromium/อุปกรณ์
+  const avatar = page.locator('#avatar-btn');
   await avatar.first().waitFor({ state: 'attached', timeout: 15_000 }).catch(() => {});
   const signedIn = await avatar.count() > 0;
   if (!signedIn) {

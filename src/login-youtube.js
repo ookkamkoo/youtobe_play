@@ -1,22 +1,30 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
+import dotenv from 'dotenv';
 
-const profileDir = path.join(process.cwd(), '.youtube-profile');
+dotenv.config({ override: true });
+
+// Raspberry Pi ใช้ profile Chromium ปกติของ user เพื่อคงสถานะ login เดิม
+const profileDir = process.env.BROWSER_PROFILE_DIR
+  ? path.resolve(process.env.BROWSER_PROFILE_DIR)
+  : process.platform === 'linux'
+    ? path.join(process.env.HOME ?? process.cwd(), '.config', 'chromium')
+    : path.join(process.cwd(), '.youtube-profile');
 const browserCandidates = process.platform === 'win32'
   ? [
       'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
       'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe'
     ]
-  : ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable'];
-const browserPath = browserCandidates.find(existsSync);
+  : ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium', '/usr/bin/chromium-browser'];
+const browserPath = process.env.BROWSER_PATH || browserCandidates.find(existsSync);
 
 if (!browserPath) {
-  console.error('Google Chrome was not found. Install it, then run this command again.');
+  console.error('No supported Chrome or Chromium browser was found. Install one, then run this command again.');
   process.exit(1);
 }
 
-console.log('Opening regular Google Chrome. Sign in to YouTube, then close every Chrome window using this profile.');
+console.log('Opening the browser. Sign in to YouTube, then close every browser window using this profile.');
 const chrome = spawn(browserPath, [
   `--user-data-dir=${profileDir}`,
   'https://www.youtube.com'

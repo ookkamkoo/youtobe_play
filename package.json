@@ -1,0 +1,15 @@
+{
+  "name": "youtube-video-smoke-test",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "open:chrome": "node src/open-chrome.js",
+    "auth": "node src/login-youtube.js",
+    "dev": "node src/video-smoke-test.js"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "playwright": "^1.57.0"
+  }
+}

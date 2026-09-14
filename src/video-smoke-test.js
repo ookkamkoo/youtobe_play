@@ -118,13 +118,24 @@ try {
   }
 
   // เปิด YouTube และตรวจว่าผู้ใช้ล็อกอินอยู่ก่อนเริ่มเล่นวิดีโอ
+  const authCookieNames = new Set(['SID', 'HSID', 'SSID', 'APISID', 'SAPISID', 'LOGIN_INFO']);
+  const storedCookies = await context.cookies(['https://www.youtube.com', 'https://accounts.google.com']);
+  logStep('auth-cookies-inspected', {
+    cookieCount: storedCookies.length,
+    hasGoogleAuthCookie: storedCookies.some((cookie) => authCookieNames.has(cookie.name))
+  });
   logStep('youtube-home-loading');
   await page.goto('https://www.youtube.com', { waitUntil: 'domcontentloaded', timeout: 45_000 });
   // YouTube อาจแสดง avatar เป็น element คนละชนิดในแต่ละ Chromium/อุปกรณ์
   const avatar = page.locator('#avatar-btn');
   await avatar.first().waitFor({ state: 'attached', timeout: 15_000 }).catch(() => {});
   const signedIn = await avatar.count() > 0;
-  logStep('youtube-auth-checked', { signedIn, avatarCount: await avatar.count() });
+  logStep('youtube-auth-checked', {
+    signedIn,
+    avatarCount: await avatar.count(),
+    pageUrl: page.url(),
+    pageTitle: await page.title()
+  });
   if (!signedIn) {
     throw new Error('YouTube is not signed in. Run "npm run auth", sign in manually, close Chrome, then retry.');
   }

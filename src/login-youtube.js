@@ -5,12 +5,11 @@ import dotenv from 'dotenv';
 
 dotenv.config({ override: true });
 
-// Raspberry Pi ใช้ profile Chromium ปกติของ user เพื่อคงสถานะ login เดิม
+// ใช้ profile แยกสำหรับ automation; Chromium รุ่นใหม่ไม่รองรับการ automate profile ปกติของระบบ
 const profileDir = process.env.BROWSER_PROFILE_DIR
   ? path.resolve(process.env.BROWSER_PROFILE_DIR)
-  : process.platform === 'linux'
-    ? path.join(process.env.HOME ?? process.cwd(), '.config', 'chromium')
-    : path.join(process.cwd(), '.youtube-profile');
+  : path.join(process.cwd(), '.youtube-profile');
+const browserProfileName = process.env.BROWSER_PROFILE_NAME;
 const browserCandidates = process.platform === 'win32'
   ? [
       'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
@@ -27,6 +26,7 @@ if (!browserPath) {
 console.log('Opening the browser. Sign in to YouTube, then close every browser window using this profile.');
 const chrome = spawn(browserPath, [
   `--user-data-dir=${profileDir}`,
+  ...(browserProfileName ? [`--profile-directory=${browserProfileName}`] : []),
   'https://www.youtube.com'
 ], { stdio: 'inherit' });
 

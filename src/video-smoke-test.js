@@ -18,6 +18,7 @@ const startDelayMaxMinutes = Number.parseFloat(process.env.START_DELAY_MAX_MINUT
 // บน Raspberry Pi ใช้ Chromium ของระบบโดยอัตโนมัติ; Windows ยังคงใช้ Chrome channel เดิม
 const browserPath = process.env.BROWSER_PATH
   || (process.platform === 'linux' && existsSync('/usr/bin/chromium') ? '/usr/bin/chromium' : undefined);
+const browserProfileName = process.env.BROWSER_PROFILE_NAME;
 let currentStep = 'configuration';
 
 // Log แต่ละช่วงเป็น JSON เพื่อช่วยหาจุดที่ล้มเหลวโดยไม่เปิดเผย cookie หรือข้อมูลบัญชี
@@ -66,17 +67,16 @@ function assertYouTubeUrl(url) {
   }
 }
 
-// บน Linux ใช้ profile Chromium ของ user เพื่อใช้ login เดิม; ระบบอื่นใช้ profile แยกของโปรเจกต์
+// Playwright ต้องใช้ profile แยก: Chromium รุ่นใหม่ไม่อนุญาต automate profile ปกติของระบบ
 const profileDir = process.env.BROWSER_PROFILE_DIR
   ? path.resolve(process.env.BROWSER_PROFILE_DIR)
-  : process.platform === 'linux'
-    ? path.join(process.env.HOME ?? process.cwd(), '.config', 'chromium')
-    : path.join(process.cwd(), '.youtube-profile');
+  : path.join(process.cwd(), '.youtube-profile');
 logStep('configuration-ready', {
   headless,
   keepOpen,
   browser: browserPath ?? 'chrome-channel',
   profileDir,
+  browserProfileName: browserProfileName ?? 'Default',
   hasVideoUrl: Boolean(videoUrl),
   hasSearchTermsFile: Boolean(searchTermsFile)
 });
@@ -92,6 +92,7 @@ if (startDelayMs > 0) {
 logStep('browser-launching');
 const context = await chromium.launchPersistentContext(profileDir, {
   ...(browserPath ? { executablePath: browserPath } : { channel: 'chrome' }),
+  ...(browserProfileName ? { args: [`--profile-directory=${browserProfileName}`] } : {}),
   headless,
   chromiumSandbox: true,
   locale: 'en-US'

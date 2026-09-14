@@ -14,7 +14,7 @@ const keepOpen = process.env.KEEP_OPEN === 'true';
 const actionDelayMs = Number.parseInt(process.env.ACTION_DELAY_MS ?? '2000', 10);
 const sessionMinHours = Number.parseFloat(process.env.SESSION_MIN_HOURS ?? '2');
 const sessionMaxHours = Number.parseFloat(process.env.SESSION_MAX_HOURS ?? '8');
-const startDelayMaxMinutes = Number.parseFloat(process.env.START_DELAY_MAX_MINUTES ?? '1');
+const startDelayMaxMinutes = Number.parseFloat(process.env.START_DELAY_MAX_MINUTES ?? '0.01');
 // บน Raspberry Pi ใช้ Chromium ของระบบโดยอัตโนมัติ; Windows ยังคงใช้ Chrome channel เดิม
 const browserPath = process.env.BROWSER_PATH
   || (process.platform === 'linux' && existsSync('/usr/bin/chromium') ? '/usr/bin/chromium' : undefined);

@@ -18,6 +18,18 @@ const startDelayMaxMinutes = Number.parseFloat(process.env.START_DELAY_MAX_MINUT
 // บน Raspberry Pi ใช้ Chromium ของระบบโดยอัตโนมัติ; Windows ยังคงใช้ Chrome channel เดิม
 const browserPath = process.env.BROWSER_PATH
   || (process.platform === 'linux' && existsSync('/usr/bin/chromium') ? '/usr/bin/chromium' : undefined);
+let currentStep = 'configuration';
+
+// Log แต่ละช่วงเป็น JSON เพื่อช่วยหาจุดที่ล้มเหลวโดยไม่เปิดเผย cookie หรือข้อมูลบัญชี
+function logStep(step, details = {}) {
+  currentStep = step;
+  console.log(JSON.stringify({
+    status: 'running',
+    step,
+    checkedAt: new Date().toISOString(),
+    ...details
+  }));
+}
 
 if (!videoUrl && !searchTermsFile) {
   console.error('Set VIDEO_URL or SEARCH_TERMS_FILE in .env.');
@@ -60,14 +72,24 @@ const profileDir = process.env.BROWSER_PROFILE_DIR
   : process.platform === 'linux'
     ? path.join(process.env.HOME ?? process.cwd(), '.config', 'chromium')
     : path.join(process.cwd(), '.youtube-profile');
+logStep('configuration-ready', {
+  headless,
+  keepOpen,
+  browser: browserPath ?? 'chrome-channel',
+  profileDir,
+  hasVideoUrl: Boolean(videoUrl),
+  hasSearchTermsFile: Boolean(searchTermsFile)
+});
 // สุ่มเวลารอก่อนเริ่มทั้งหมด เพื่อลดการเริ่มงานในช่วงเวลาเดิมทุกครั้ง
 const startDelayMs = Math.random() * startDelayMaxMinutes * 60 * 1000;
 if (startDelayMs > 0) {
+  logStep('start-delay', { delayMs: Math.round(startDelayMs) });
   console.log(`Waiting ${(startDelayMs / 60_000).toFixed(2)} minutes before starting.`);
   await new Promise((resolve) => setTimeout(resolve, startDelayMs));
 }
 
 // หลังรอครบแล้วจึงเปิด Chrome และเริ่มขั้นตอนทั้งหมดด้านล่าง
+logStep('browser-launching');
 const context = await chromium.launchPersistentContext(profileDir, {
   ...(browserPath ? { executablePath: browserPath } : { channel: 'chrome' }),
   headless,
@@ -76,6 +98,7 @@ const context = await chromium.launchPersistentContext(profileDir, {
 });
 // Persistent Chrome มักเปิดแท็บ about:blank มาแล้ว จึงใช้แท็บนั้นแทนการสร้างแท็บเพิ่ม
 const page = context.pages()[0] ?? await context.newPage();
+logStep('browser-ready', { pageCount: context.pages().length });
 let contextClosed = false;
 context.on('close', () => {
   contextClosed = true;
@@ -89,15 +112,18 @@ const sessionEndsAt = keepOpen ? Date.now() + sessionHours * 60 * 60 * 1000 : un
 
 try {
   if (keepOpen) {
+    logStep('session-starting', { sessionHours });
     console.log(`This session will run for ${sessionHours.toFixed(2)} hours.`);
   }
 
   // เปิด YouTube และตรวจว่าผู้ใช้ล็อกอินอยู่ก่อนเริ่มเล่นวิดีโอ
+  logStep('youtube-home-loading');
   await page.goto('https://www.youtube.com', { waitUntil: 'domcontentloaded', timeout: 45_000 });
   // YouTube อาจแสดง avatar เป็น element คนละชนิดในแต่ละ Chromium/อุปกรณ์
   const avatar = page.locator('#avatar-btn');
   await avatar.first().waitFor({ state: 'attached', timeout: 15_000 }).catch(() => {});
   const signedIn = await avatar.count() > 0;
+  logStep('youtube-auth-checked', { signedIn, avatarCount: await avatar.count() });
   if (!signedIn) {
     throw new Error('YouTube is not signed in. Run "npm run auth", sign in manually, close Chrome, then retry.');
   }
@@ -105,6 +131,7 @@ try {
   let searchTerm;
   let searchTerms = [];
   if (searchTermsFile) {
+    logStep('search-terms-loading', { searchTermsFile });
     // อ่านคำค้นที่ใช้ได้จากไฟล์ แล้วสุ่มมา 1 คำ
     const termsPath = path.resolve(process.cwd(), searchTermsFile);
     searchTerms = (await readFile(termsPath, 'utf8'))
@@ -113,6 +140,7 @@ try {
       .filter((term) => term && !term.startsWith('#'));
     if (!searchTerms.length) throw new Error(`No search terms found in ${searchTermsFile}.`);
     searchTerm = searchTerms[Math.floor(Math.random() * searchTerms.length)];
+    logStep('search-term-selected', { searchTermsCount: searchTerms.length });
   }
 
   let previousUrl;
@@ -122,6 +150,7 @@ try {
     let selectionNumber;
     let selectionSource;
     if (searchTerm && !previousUrl) {
+      logStep('search-results-loading');
       // ดึงเฉพาะ 5 ผลลัพธ์แรก แล้วสุ่มเลือกหนึ่งวิดีโอ
       await page.goto(`https://www.youtube.com/results?search_query=${encodeURIComponent(searchTerm)}`, {
         waitUntil: 'domcontentloaded',
@@ -144,6 +173,7 @@ try {
       selectionNumber = selected.resultNumber;
       selectionSource = 'search-results';
     } else if (previousUrl) {
+      logStep('recommendations-loading');
       // ดึงเฉพาะ 5 วิดีโอแนะนำแรก และเลี่ยงวิดีโอเดิมเมื่อเป็นไปได้
       const recommendations = page.locator('ytd-watch-next-secondary-results-renderer a#thumbnail[href*="/watch?"]');
       await recommendations.first().waitFor({ state: 'attached', timeout: 30_000 });
@@ -164,6 +194,7 @@ try {
     }
 
     assertYouTubeUrl(targetUrl);
+    logStep('video-loading', { selectionSource, selectionNumber });
     // เปิดหน้าวิดีโอ รับคุกกี้หากมี และสั่งเล่นแบบปิดเสียง
     const response = await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 45_000 });
     if (!response?.ok()) throw new Error(`Page returned HTTP ${response?.status() ?? 'unknown'}`);
@@ -172,6 +203,7 @@ try {
     if (await accept.count()) await accept.first().click({ timeout: 5_000 });
 
     const player = page.locator('video.html5-main-video');
+    logStep('player-waiting');
     await player.waitFor({ state: 'attached', timeout: 30_000 });
     const result = await player.evaluate(async (video, delayMs) => {
       video.muted = true;
@@ -183,6 +215,7 @@ try {
     if (result.paused || result.currentTime <= 0) {
       throw new Error(`Player did not begin playback: ${JSON.stringify(result)}`);
     }
+    logStep('playback-verified', { currentTime: result.currentTime, duration: result.duration });
 
     // เมื่อเปิดดูต่อเนื่อง ให้สุ่มช่วงที่ต้องดูของแต่ละวิดีโอระหว่าง 20–100%
     const watchPercent = keepOpen ? 20 + Math.random() * 80 : undefined;
@@ -239,7 +272,7 @@ try {
   } while (keepOpen && !contextClosed && Date.now() < sessionEndsAt);
 } catch (error) {
   // ส่งผลล้มเหลวเป็น JSON เพื่อให้เรียกใช้จาก scheduler หรือสคริปต์อื่นได้
-  console.error(JSON.stringify({ status: 'failed', url: videoUrl, checkedAt: new Date().toISOString(), error: error.message }));
+  console.error(JSON.stringify({ status: 'failed', step: currentStep, url: videoUrl, checkedAt: new Date().toISOString(), error: error.message }));
   process.exitCode = 1;
 } finally {
   // ปิด Chrome ทุกครั้งเมื่อเสร็จงานหรือเกิดข้อผิดพลาด

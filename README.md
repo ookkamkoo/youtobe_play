@@ -50,4 +50,13 @@ $env:HEADLESS = 'false'
 npm run dev
 ```
 
+หากต้องการให้เปิด Chrome DevTools พร้อมหน้าวิดีโอ ให้กำหนดใน `.env`:
+
+```dotenv
+HEADLESS=false
+OPEN_DEVTOOLS=true
+```
+
+Chrome จะจำแท็บล่าสุดของ DevTools; เลือกแท็บ **Network** หนึ่งครั้ง แล้วการเปิดครั้งถัดไปจะกลับไปยังแท็บนั้น.
+
 ผลลัพธ์เป็น JSON พร้อม `status: passed` หรือ `status: failed` เพื่อใช้ต่อกับระบบตรวจสอบหรือ task scheduler ได้

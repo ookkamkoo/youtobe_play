@@ -9,6 +9,7 @@ dotenv.config({ override: true });
 const videoUrl = process.env.VIDEO_URL;
 const searchTermsFile = process.env.SEARCH_TERMS_FILE;
 const headless = process.env.HEADLESS !== 'false';
+const openDevTools = process.env.OPEN_DEVTOOLS === 'true';
 const actionDelayMs = Number.parseInt(process.env.ACTION_DELAY_MS ?? '2000', 10);
 const browserPath = process.env.BROWSER_PATH || (process.platform === 'linux' && existsSync('/usr/bin/chromium') ? '/usr/bin/chromium' : undefined);
 const chromeDriverPath = process.env.CHROMEDRIVER_PATH || (process.platform === 'linux' && existsSync('/usr/bin/chromedriver') ? '/usr/bin/chromedriver' : undefined);
@@ -43,6 +44,7 @@ try {
   if (browserPath) options.setChromeBinaryPath(browserPath);
   if (process.env.BROWSER_PROFILE_NAME) options.addArguments(`--profile-directory=${process.env.BROWSER_PROFILE_NAME}`);
   if (headless) options.addArguments('--headless=new');
+  if (!headless && openDevTools) options.addArguments('--auto-open-devtools-for-tabs');
   const builder = new Builder().forBrowser('chrome').setChromeOptions(options);
   // Use a locally installed driver on Raspberry Pi and bypass Selenium Manager.
   if (chromeDriverPath) builder.setChromeService(new chrome.ServiceBuilder(chromeDriverPath));

@@ -52,8 +52,12 @@ try {
   await driver.get('https://www.youtube.com');
   const cookies = await driver.manage().getCookies();
   const avatars = await driver.findElements(By.css('#avatar-btn'));
-  const signedIn = avatars.length > 0;
-  logStep('youtube-auth-checked', { signedIn, cookieCount: cookies.length, pageUrl: await driver.getCurrentUrl(), pageTitle: await driver.getTitle() });
+  const authCookieNames = new Set(['SID', 'HSID', 'SSID', 'APISID', 'SAPISID', 'LOGIN_INFO']);
+  const hasGoogleAuthCookie = cookies.some((cookie) => authCookieNames.has(cookie.name));
+  // YouTube's avatar selector differs across Chromium builds. Google session cookies
+  // are also a reliable sign-in signal for this test profile.
+  const signedIn = avatars.length > 0 || hasGoogleAuthCookie;
+  logStep('youtube-auth-checked', { signedIn, cookieCount: cookies.length, hasGoogleAuthCookie, avatarCount: avatars.length, pageUrl: await driver.getCurrentUrl(), pageTitle: await driver.getTitle() });
   if (!signedIn) throw new Error('YouTube is not signed in. Run "npm run auth", sign in manually, close Chrome, then retry.');
 
   let targetUrl = videoUrl;

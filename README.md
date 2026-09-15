@@ -35,6 +35,8 @@ CHROMEDRIVER_PATH=/usr/bin/chromedriver
 
 `CHROMEDRIVER_PATH` bypasses Selenium Manager, which is required on Raspberry Pi systems where its bundled binary is not compatible with the installed CPU architecture.
 
+`npm run auth` opens Chromium directly, rather than through Selenium, because Google sign-in may reject an automated WebDriver browser. Sign in manually and close Chromium; the resulting session is saved in the configured profile for `npm run dev`.
+
 กำหนด `VIDEO_URL` ใน `.env` เป็น URL วิดีโอที่คุณมีสิทธิ์ทดสอบ แล้วรัน:
 
 ```powershell

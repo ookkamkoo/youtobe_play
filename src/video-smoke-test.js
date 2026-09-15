@@ -45,6 +45,9 @@ try {
   const options = new chrome.Options();
   if (reuseExistingChrome) {
     options.debuggerAddress(`127.0.0.1:${debuggingPort}`);
+    // End the WebDriver session after the daily run without closing the
+    // Chromium instance that owns the authenticated profile.
+    options.detachDriver(true);
   } else {
     options.addArguments(`--user-data-dir=${profileDir}`, '--lang=en-US', '--mute-audio');
     if (browserPath) options.setChromeBinaryPath(browserPath);

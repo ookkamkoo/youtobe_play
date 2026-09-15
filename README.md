@@ -14,9 +14,10 @@ npm run open:chrome
 
 ```powershell
 npm install
-npx playwright install chromium
 Copy-Item .env.example .env
 ```
+
+Selenium จะใช้ Selenium Manager เพื่อดาวน์โหลด/เลือก ChromeDriver ที่เข้ากันกับ Chrome โดยอัตโนมัติในการรันครั้งแรก หากต้องการระบุไฟล์เบราว์เซอร์เอง ให้กำหนด `BROWSER_PATH` ใน `.env`
 
 กำหนด `VIDEO_URL` ใน `.env` เป็น URL วิดีโอที่คุณมีสิทธิ์ทดสอบ แล้วรัน:
 

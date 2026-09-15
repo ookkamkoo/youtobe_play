@@ -1,7 +1,8 @@
 import dotenv from 'dotenv';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { chromium } from 'playwright';
+import { Builder } from 'selenium-webdriver';
+import chrome from 'selenium-webdriver/chrome.js';
 
 dotenv.config({ override: true });
 
@@ -10,20 +11,25 @@ const profileDir = process.env.BROWSER_PROFILE_DIR
   ? path.resolve(process.env.BROWSER_PROFILE_DIR)
   : path.join(process.cwd(), '.youtube-profile');
 const browserProfileName = process.env.BROWSER_PROFILE_NAME;
-// Pi ใช้ Chromium ของระบบ; Windows ใช้ Chromium ที่ Playwright ติดตั้งไว้
+// Pi ใช้ Chromium ของระบบ; Windows ให้ Selenium Manager หา ChromeDriver ที่ตรงกับ Chrome
 const browserPath = process.env.BROWSER_PATH
   || (process.platform === 'linux' && existsSync('/usr/bin/chromium') ? '/usr/bin/chromium' : undefined);
 
 console.log('Opening Chromium. Sign in to YouTube, then close every browser window using this profile.');
-const context = await chromium.launchPersistentContext(profileDir, {
-  ...(browserPath ? { executablePath: browserPath } : {}),
-  ...(browserProfileName ? { args: [`--profile-directory=${browserProfileName}`] } : {}),
-  headless: false,
-  chromiumSandbox: true,
-  locale: 'en-US'
-});
-const page = context.pages()[0] ?? await context.newPage();
-await page.goto('https://www.youtube.com', { waitUntil: 'domcontentloaded' });
+const options = new chrome.Options().addArguments(`--user-data-dir=${profileDir}`, '--lang=en-US');
+if (browserPath) options.setChromeBinaryPath(browserPath);
+if (browserProfileName) options.addArguments(`--profile-directory=${browserProfileName}`);
+const driver = await new Builder().forBrowser('chrome').setChromeOptions(options).build();
+await driver.get('https://www.youtube.com');
 
 console.log('Close every Chromium window after you finish signing in.');
-await new Promise((resolve) => context.on('close', resolve));
+try {
+  while (true) {
+    await driver.getWindowHandle();
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+} catch {
+  // The user closed the final Chrome window.
+} finally {
+  await driver.quit().catch(() => {});
+}

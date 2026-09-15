@@ -10,6 +10,6 @@
   },
   "dependencies": {
     "dotenv": "^17.2.3",
-    "playwright": "^1.57.0"
+    "selenium-webdriver": "^4.39.0"
   }
 }

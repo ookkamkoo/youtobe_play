@@ -13,6 +13,8 @@ const profileDir = process.env.BROWSER_PROFILE_DIR
   : path.join(process.cwd(), '.youtube-profile');
 const browserProfileName = process.env.BROWSER_PROFILE_NAME;
 const openDevTools = process.env.OPEN_DEVTOOLS === 'true';
+const reuseExistingChrome = process.env.REUSE_EXISTING_CHROME === 'true';
+const debuggingPort = process.env.CHROME_DEBUGGING_PORT ?? '9222';
 const browserPath = process.env.BROWSER_PATH
   || (process.platform === 'linux' && existsSync('/usr/bin/chromium') ? '/usr/bin/chromium' : undefined)
   || (process.platform === 'win32' ? 'chrome.exe' : 'chromium');
@@ -25,6 +27,9 @@ const args = [
 ];
 if (browserProfileName) args.splice(1, 0, `--profile-directory=${browserProfileName}`);
 if (openDevTools) args.splice(-1, 0, '--auto-open-devtools-for-tabs');
+if (reuseExistingChrome) {
+  args.splice(-1, 0, `--remote-debugging-port=${debuggingPort}`, '--remote-debugging-address=127.0.0.1');
+}
 
 console.log('Opening Chromium normally. Sign in to YouTube, then close every browser window using this profile.');
 const browser = spawn(browserPath, args, { stdio: 'inherit' });

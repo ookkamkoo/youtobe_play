@@ -10,6 +10,8 @@ const videoUrl = process.env.VIDEO_URL;
 const searchTermsFile = process.env.SEARCH_TERMS_FILE;
 const headless = process.env.HEADLESS !== 'false';
 const openDevTools = process.env.OPEN_DEVTOOLS === 'true';
+const reuseExistingChrome = process.env.REUSE_EXISTING_CHROME === 'true';
+const debuggingPort = process.env.CHROME_DEBUGGING_PORT ?? '9222';
 const actionDelayMs = Number.parseInt(process.env.ACTION_DELAY_MS ?? '2000', 10);
 const browserPath = process.env.BROWSER_PATH || (process.platform === 'linux' && existsSync('/usr/bin/chromium') ? '/usr/bin/chromium' : undefined);
 const chromeDriverPath = process.env.CHROMEDRIVER_PATH || (process.platform === 'linux' && existsSync('/usr/bin/chromedriver') ? '/usr/bin/chromedriver' : undefined);
@@ -39,12 +41,17 @@ if (!videoUrl && !searchTermsFile) {
 if (!Number.isFinite(actionDelayMs) || actionDelayMs < 0) throw new Error('ACTION_DELAY_MS must be a non-negative whole number.');
 
 try {
-  logStep('browser-launching', { headless, browser: browserPath ?? 'Chrome via Selenium Manager', profileDir });
-  const options = new chrome.Options().addArguments(`--user-data-dir=${profileDir}`, '--lang=en-US', '--mute-audio');
-  if (browserPath) options.setChromeBinaryPath(browserPath);
-  if (process.env.BROWSER_PROFILE_NAME) options.addArguments(`--profile-directory=${process.env.BROWSER_PROFILE_NAME}`);
-  if (headless) options.addArguments('--headless=new');
-  if (!headless && openDevTools) options.addArguments('--auto-open-devtools-for-tabs');
+  logStep('browser-launching', { headless, reuseExistingChrome, browser: browserPath ?? 'Chrome via Selenium Manager', profileDir });
+  const options = new chrome.Options();
+  if (reuseExistingChrome) {
+    options.debuggerAddress(`127.0.0.1:${debuggingPort}`);
+  } else {
+    options.addArguments(`--user-data-dir=${profileDir}`, '--lang=en-US', '--mute-audio');
+    if (browserPath) options.setChromeBinaryPath(browserPath);
+    if (process.env.BROWSER_PROFILE_NAME) options.addArguments(`--profile-directory=${process.env.BROWSER_PROFILE_NAME}`);
+    if (headless) options.addArguments('--headless=new');
+    if (!headless && openDevTools) options.addArguments('--auto-open-devtools-for-tabs');
+  }
   const builder = new Builder().forBrowser('chrome').setChromeOptions(options);
   // Use a locally installed driver on Raspberry Pi and bypass Selenium Manager.
   if (chromeDriverPath) builder.setChromeService(new chrome.ServiceBuilder(chromeDriverPath));

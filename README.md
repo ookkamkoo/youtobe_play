@@ -59,4 +59,13 @@ OPEN_DEVTOOLS=true
 
 Chrome จะจำแท็บล่าสุดของ DevTools; เลือกแท็บ **Network** หนึ่งครั้ง แล้วการเปิดครั้งถัดไปจะกลับไปยังแท็บนั้น.
 
+หากต้องการใช้หน้าต่าง Chromium ที่ล็อกอินอยู่เดิมโดยไม่เปิดหน้าต่างใหม่ ให้ตั้งค่าทั้งสองรายการนี้ก่อนรัน `npm run auth`:
+
+```dotenv
+REUSE_EXISTING_CHROME=true
+CHROME_DEBUGGING_PORT=9222
+```
+
+ปล่อย Chromium จาก `npm run auth` เปิดไว้ แล้วเปิด Terminal อีกหน้าต่างเพื่อรัน `npm run dev` Selenium จะเชื่อมต่อกับหน้าต่างเดิมผ่านพอร์ต debug บนเครื่องเดียวกัน.
+
 ผลลัพธ์เป็น JSON พร้อม `status: passed` หรือ `status: failed` เพื่อใช้ต่อกับระบบตรวจสอบหรือ task scheduler ได้

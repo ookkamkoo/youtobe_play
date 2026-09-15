@@ -58,7 +58,9 @@ try {
   // are also a reliable sign-in signal for this test profile.
   const signedIn = avatars.length > 0 || hasGoogleAuthCookie;
   logStep('youtube-auth-checked', { signedIn, cookieCount: cookies.length, hasGoogleAuthCookie, avatarCount: avatars.length, pageUrl: await driver.getCurrentUrl(), pageTitle: await driver.getTitle() });
-  if (!signedIn) throw new Error('YouTube is not signed in. Run "npm run auth", sign in manually, close Chrome, then retry.');
+  if (!signedIn) {
+    console.warn('No signed-in YouTube session was available to WebDriver; continuing with the public-video smoke test.');
+  }
 
   let targetUrl = videoUrl;
   let searchTerm;

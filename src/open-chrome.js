@@ -8,9 +8,13 @@ dotenv.config({ override: true });
 // Pi ใช้ Chromium ของระบบ; Windows ให้ Selenium Manager หา ChromeDriver ที่ตรงกับ Chrome
 const browserPath = process.env.BROWSER_PATH
   || (process.platform === 'linux' && existsSync('/usr/bin/chromium') ? '/usr/bin/chromium' : undefined);
+const chromeDriverPath = process.env.CHROMEDRIVER_PATH
+  || (process.platform === 'linux' && existsSync('/usr/bin/chromedriver') ? '/usr/bin/chromedriver' : undefined);
 const options = new chrome.Options();
 if (browserPath) options.setChromeBinaryPath(browserPath);
-const driver = await new Builder().forBrowser('chrome').setChromeOptions(options).build();
+const builder = new Builder().forBrowser('chrome').setChromeOptions(options);
+if (chromeDriverPath) builder.setChromeService(new chrome.ServiceBuilder(chromeDriverPath));
+const driver = await builder.build();
 
 await driver.get('about:blank');
 

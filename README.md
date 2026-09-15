@@ -19,6 +19,22 @@ Copy-Item .env.example .env
 
 Selenium จะใช้ Selenium Manager เพื่อดาวน์โหลด/เลือก ChromeDriver ที่เข้ากันกับ Chrome โดยอัตโนมัติในการรันครั้งแรก หากต้องการระบุไฟล์เบราว์เซอร์เอง ให้กำหนด `BROWSER_PATH` ใน `.env`
 
+### Raspberry Pi
+
+Install Chromium and its matching driver from the same apt repository, then set the two paths in `.env`:
+
+```bash
+sudo apt update
+sudo apt install chromium chromium-driver
+```
+
+```dotenv
+BROWSER_PATH=/usr/bin/chromium
+CHROMEDRIVER_PATH=/usr/bin/chromedriver
+```
+
+`CHROMEDRIVER_PATH` bypasses Selenium Manager, which is required on Raspberry Pi systems where its bundled binary is not compatible with the installed CPU architecture.
+
 กำหนด `VIDEO_URL` ใน `.env` เป็น URL วิดีโอที่คุณมีสิทธิ์ทดสอบ แล้วรัน:
 
 ```powershell

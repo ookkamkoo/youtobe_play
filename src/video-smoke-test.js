@@ -11,6 +11,7 @@ const searchTermsFile = process.env.SEARCH_TERMS_FILE;
 const headless = process.env.HEADLESS !== 'false';
 const actionDelayMs = Number.parseInt(process.env.ACTION_DELAY_MS ?? '2000', 10);
 const browserPath = process.env.BROWSER_PATH || (process.platform === 'linux' && existsSync('/usr/bin/chromium') ? '/usr/bin/chromium' : undefined);
+const chromeDriverPath = process.env.CHROMEDRIVER_PATH || (process.platform === 'linux' && existsSync('/usr/bin/chromedriver') ? '/usr/bin/chromedriver' : undefined);
 const profileDir = process.env.BROWSER_PROFILE_DIR ? path.resolve(process.env.BROWSER_PROFILE_DIR) : path.join(process.cwd(), '.youtube-profile');
 let currentStep = 'configuration';
 let driver;
@@ -42,7 +43,10 @@ try {
   if (browserPath) options.setChromeBinaryPath(browserPath);
   if (process.env.BROWSER_PROFILE_NAME) options.addArguments(`--profile-directory=${process.env.BROWSER_PROFILE_NAME}`);
   if (headless) options.addArguments('--headless=new');
-  driver = await new Builder().forBrowser('chrome').setChromeOptions(options).build();
+  const builder = new Builder().forBrowser('chrome').setChromeOptions(options);
+  // Use a locally installed driver on Raspberry Pi and bypass Selenium Manager.
+  if (chromeDriverPath) builder.setChromeService(new chrome.ServiceBuilder(chromeDriverPath));
+  driver = await builder.build();
 
   logStep('youtube-home-loading');
   await driver.get('https://www.youtube.com');

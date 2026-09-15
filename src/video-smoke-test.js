@@ -34,6 +34,35 @@ async function getVideoLinks(selector) {
   return (await Promise.all(links.slice(0, 5).map((link) => link.getAttribute('href')))).filter(Boolean);
 }
 
+async function startPlaybackAndVerify() {
+  logStep('player-waiting');
+  const player = await driver.wait(until.elementLocated(By.css('video.html5-main-video')), 30_000);
+  const result = await driver.executeAsyncScript((video, delay, done) => {
+    video.muted = true;
+    video.play()
+      .then(() => setTimeout(() => done({ paused: video.paused, currentTime: video.currentTime, readyState: video.readyState, duration: video.duration }), delay))
+      .catch((error) => done({ error: error.message }));
+  }, player, actionDelayMs);
+  if (result.error || result.paused || result.currentTime <= 0) throw new Error(`Player did not begin playback: ${JSON.stringify(result)}`);
+  return { player, result };
+}
+
+async function waitForVideoEnd(player) {
+  logStep('video-playing', { url: await driver.getCurrentUrl() });
+  await driver.executeAsyncScript((video, done) => {
+    if (video.ended) return done();
+    video.addEventListener('ended', () => done(), { once: true });
+  }, player);
+}
+
+async function playNextVideo(videoNumber) {
+  const previousUrl = await driver.getCurrentUrl();
+  logStep('next-video-loading', { previousUrl, videoNumber });
+  const nextButton = await driver.wait(until.elementLocated(By.css('button.ytp-next-button')), 15_000);
+  await driver.executeScript('arguments[0].click()', nextButton);
+  await driver.wait(async () => (await driver.getCurrentUrl()) !== previousUrl, 30_000);
+}
+
 if (!videoUrl && !searchTermsFile) {
   console.error('Set VIDEO_URL or SEARCH_TERMS_FILE in .env.');
   process.exit(1);
@@ -99,15 +128,16 @@ try {
   await driver.get(targetUrl);
   const accept = await driver.findElements(By.xpath("//button[contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'accept all') or contains(translate(., 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), 'i agree')]"));
   if (accept[0]) await accept[0].click().catch(() => {});
-  logStep('player-waiting');
-  const player = await driver.wait(until.elementLocated(By.css('video.html5-main-video')), 30_000);
-  const result = await driver.executeAsyncScript((video, delay, done) => {
-    video.muted = true;
-    video.play().then(() => setTimeout(() => done({ paused: video.paused, currentTime: video.currentTime, readyState: video.readyState, duration: video.duration }), delay)).catch((error) => done({ error: error.message }));
-  }, player, actionDelayMs);
-  if (result.error || result.paused || result.currentTime <= 0) throw new Error(`Player did not begin playback: ${JSON.stringify(result)}`);
-  logStep('playback-verified', { currentTime: result.currentTime, duration: result.duration });
-  console.log(JSON.stringify({ status: 'passed', url: targetUrl, searchTerm, checkedAt: new Date().toISOString(), actionDelayMs, ...result }));
+  let videoNumber = 1;
+  while (true) {
+    const { player, result } = await startPlaybackAndVerify();
+    const url = await driver.getCurrentUrl();
+    logStep('playback-verified', { videoNumber, currentTime: result.currentTime, duration: result.duration });
+    console.log(JSON.stringify({ status: 'playing', videoNumber, url, searchTerm, checkedAt: new Date().toISOString(), actionDelayMs, ...result }));
+    await waitForVideoEnd(player);
+    await playNextVideo(videoNumber + 1);
+    videoNumber += 1;
+  }
 } catch (error) {
   console.error(JSON.stringify({ status: 'failed', step: currentStep, url: videoUrl, checkedAt: new Date().toISOString(), error: error.message }));
   process.exitCode = 1;

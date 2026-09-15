@@ -1,0 +1,15 @@
+{
+  "browsers": [],
+  "drivers": [],
+  "stats": [
+    {
+      "browser": "chrome",
+      "browser_version": "",
+      "os": "windows",
+      "arch": "x86_64",
+      "lang": "javascript",
+      "selenium_version": "4.39",
+      "stats_ttl": 1789459749
+    }
+  ]
+}

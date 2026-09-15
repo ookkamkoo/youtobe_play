@@ -1,7 +1,7 @@
+import dotenv from 'dotenv';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
-import dotenv from 'dotenv';
+import { chromium } from 'playwright';
 
 dotenv.config({ override: true });
 
@@ -10,31 +10,20 @@ const profileDir = process.env.BROWSER_PROFILE_DIR
   ? path.resolve(process.env.BROWSER_PROFILE_DIR)
   : path.join(process.cwd(), '.youtube-profile');
 const browserProfileName = process.env.BROWSER_PROFILE_NAME;
-const browserCandidates = process.platform === 'win32'
-  ? [
-      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe'
-    ]
-  : ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium', '/usr/bin/chromium-browser'];
-const browserPath = process.env.BROWSER_PATH || browserCandidates.find(existsSync);
+// Pi ใช้ Chromium ของระบบ; Windows ใช้ Chromium ที่ Playwright ติดตั้งไว้
+const browserPath = process.env.BROWSER_PATH
+  || (process.platform === 'linux' && existsSync('/usr/bin/chromium') ? '/usr/bin/chromium' : undefined);
 
-if (!browserPath) {
-  console.error('No supported Chrome or Chromium browser was found. Install one, then run this command again.');
-  process.exit(1);
-}
-
-console.log('Opening the browser. Sign in to YouTube, then close every browser window using this profile.');
-const chrome = spawn(browserPath, [
-  `--user-data-dir=${profileDir}`,
-  ...(browserProfileName ? [`--profile-directory=${browserProfileName}`] : []),
-  'https://www.youtube.com'
-], { stdio: 'inherit' });
-
-chrome.on('error', (error) => {
-  console.error(`Could not start Chrome: ${error.message}`);
-  process.exitCode = 1;
+console.log('Opening Chromium. Sign in to YouTube, then close every browser window using this profile.');
+const context = await chromium.launchPersistentContext(profileDir, {
+  ...(browserPath ? { executablePath: browserPath } : {}),
+  ...(browserProfileName ? { args: [`--profile-directory=${browserProfileName}`] } : {}),
+  headless: false,
+  chromiumSandbox: true,
+  locale: 'en-US'
 });
+const page = context.pages()[0] ?? await context.newPage();
+await page.goto('https://www.youtube.com', { waitUntil: 'domcontentloaded' });
 
-chrome.on('exit', (code) => {
-  process.exitCode = code ?? 1;
-});
+console.log('Close every Chromium window after you finish signing in.');
+await new Promise((resolve) => context.on('close', resolve));

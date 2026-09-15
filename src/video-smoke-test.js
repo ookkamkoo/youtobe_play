@@ -15,7 +15,7 @@ const actionDelayMs = Number.parseInt(process.env.ACTION_DELAY_MS ?? '2000', 10)
 const sessionMinHours = Number.parseFloat(process.env.SESSION_MIN_HOURS ?? '2');
 const sessionMaxHours = Number.parseFloat(process.env.SESSION_MAX_HOURS ?? '8');
 const startDelayMaxMinutes = Number.parseFloat(process.env.START_DELAY_MAX_MINUTES ?? '0.01');
-// บน Raspberry Pi ใช้ Chromium ของระบบโดยอัตโนมัติ; Windows ยังคงใช้ Chrome channel เดิม
+// Pi ใช้ Chromium ของระบบ; Windows ใช้ Chromium ที่ Playwright ติดตั้งไว้
 const browserPath = process.env.BROWSER_PATH
   || (process.platform === 'linux' && existsSync('/usr/bin/chromium') ? '/usr/bin/chromium' : undefined);
 const browserProfileName = process.env.BROWSER_PROFILE_NAME;
@@ -74,7 +74,7 @@ const profileDir = process.env.BROWSER_PROFILE_DIR
 logStep('configuration-ready', {
   headless,
   keepOpen,
-  browser: browserPath ?? 'chrome-channel',
+  browser: browserPath ?? chromium.executablePath(),
   profileDir,
   browserProfileName: browserProfileName ?? 'Default',
   hasVideoUrl: Boolean(videoUrl),
@@ -91,7 +91,7 @@ if (startDelayMs > 0) {
 // หลังรอครบแล้วจึงเปิด Chrome และเริ่มขั้นตอนทั้งหมดด้านล่าง
 logStep('browser-launching');
 const context = await chromium.launchPersistentContext(profileDir, {
-  ...(browserPath ? { executablePath: browserPath } : { channel: 'chrome' }),
+  ...(browserPath ? { executablePath: browserPath } : {}),
   ...(browserProfileName ? { args: [`--profile-directory=${browserProfileName}`] } : {}),
   headless,
   chromiumSandbox: true,
@@ -187,7 +187,11 @@ try {
     } else if (previousUrl) {
       logStep('recommendations-loading');
       // ดึงเฉพาะ 5 วิดีโอแนะนำแรก และเลี่ยงวิดีโอเดิมเมื่อเป็นไปได้
-      const recommendations = page.locator('ytd-watch-next-secondary-results-renderer a#thumbnail[href*="/watch?"]');
+      const recommendations = page.locator([
+        'ytd-watch-next-secondary-results-renderer a#thumbnail[href*="/watch?"]',
+        'ytd-compact-video-renderer a#thumbnail[href*="/watch?"]',
+        'ytd-compact-video-renderer a#video-title[href*="/watch?"]'
+      ].join(', '));
       await recommendations.first().waitFor({ state: 'attached', timeout: 30_000 });
       const recommendationUrls = await recommendations.evaluateAll((links) => links
         .slice(0, 5)

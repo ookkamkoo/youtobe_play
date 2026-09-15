@@ -4,11 +4,11 @@ import { existsSync } from 'node:fs';
 
 dotenv.config({ override: true });
 
-// Raspberry Pi ใช้ Chromium ของระบบ; หากไม่พบจึงใช้ Google Chrome channel
+// Pi ใช้ Chromium ของระบบ; Windows ใช้ Chromium ที่ Playwright ติดตั้งไว้
 const browserPath = process.env.BROWSER_PATH
   || (process.platform === 'linux' && existsSync('/usr/bin/chromium') ? '/usr/bin/chromium' : undefined);
 const browser = await chromium.launch({
-  ...(browserPath ? { executablePath: browserPath } : { channel: 'chrome' }),
+  ...(browserPath ? { executablePath: browserPath } : {}),
   headless: false,
   chromiumSandbox: true
 });

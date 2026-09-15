@@ -51,13 +51,21 @@ try {
   logStep('youtube-home-loading');
   await driver.get('https://www.youtube.com');
   const cookies = await driver.manage().getCookies();
-  const avatars = await driver.findElements(By.css('#avatar-btn'));
+  // Selenium CSS locators do not cross Shadow DOM boundaries, while YouTube's
+  // account button can be rendered inside nested web components.
+  const hasAvatarButton = await driver.executeScript(() => {
+    const findAvatar = (root) => {
+      if (root.querySelector('#avatar-btn')) return true;
+      return [...root.querySelectorAll('*')].some((element) => element.shadowRoot && findAvatar(element.shadowRoot));
+    };
+    return findAvatar(document);
+  });
   const authCookieNames = new Set(['SID', 'HSID', 'SSID', 'APISID', 'SAPISID', 'LOGIN_INFO']);
   const hasGoogleAuthCookie = cookies.some((cookie) => authCookieNames.has(cookie.name));
-  // YouTube's avatar selector differs across Chromium builds. Google session cookies
-  // are also a reliable sign-in signal for this test profile.
-  const signedIn = avatars.length > 0 || hasGoogleAuthCookie;
-  logStep('youtube-auth-checked', { signedIn, cookieCount: cookies.length, hasGoogleAuthCookie, avatarCount: avatars.length, pageUrl: await driver.getCurrentUrl(), pageTitle: await driver.getTitle() });
+  // Google cookies may belong to accounts.google.com and are therefore not
+  // visible from youtube.com; use the rendered account button as the primary signal.
+  const signedIn = hasAvatarButton || hasGoogleAuthCookie;
+  logStep('youtube-auth-checked', { signedIn, cookieCount: cookies.length, hasGoogleAuthCookie, hasAvatarButton, pageUrl: await driver.getCurrentUrl(), pageTitle: await driver.getTitle() });
   if (!signedIn) {
     console.warn('No signed-in YouTube session was available to WebDriver; continuing with the public-video smoke test.');
   }
